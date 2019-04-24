@@ -171,19 +171,53 @@ namespace utf8fuzz
 
                     input = input.Slice(bytesReadJustNow);
 
-                    if (opStatus == OperationStatus.Done)
+                    if (opStatus != OperationStatus.Done)
                     {
-                        continue;
+                        // Skip over invalid data
+
+                        Rune.DecodeFromUtf8(input, out _, out int bytesToSkip);
+                        input = input.Slice(bytesToSkip);
                     }
-
-                    // Skip over invalid data
-
-                    Rune.DecodeFromUtf8(input, out _, out int bytesToSkip);
-                    input = input.Slice(bytesToSkip);
                 }
             }
 
-            Console.WriteLine("-- END TEST --");
+            Console.WriteLine("Trying custom decoder replacement.");
+
+            {
+                // use a custom replacement string
+                Encoding encoding = Encoding.GetEncoding("utf-8", EncoderFallback.ExceptionFallback, new DecoderReplacementFallback("{BAD}"));
+
+                string decoded = encoding.GetString(_data);
+
+                ReadOnlySpan<byte> input = _data;
+                char[] decoded2 = new char[decoded.Length];
+                StringBuilder builder = new StringBuilder();
+
+                while (!input.IsEmpty)
+                {
+                    OperationStatus opStatus = Utf8.ToUtf16(input, decoded2, out int bytesReadJustNow, out int charsWrittenJustNow, replaceInvalidSequences: false, isFinalBlock: true);
+                    builder.Append(decoded2, 0, charsWrittenJustNow);
+
+                    input = input.Slice(bytesReadJustNow);
+
+                    if (opStatus != OperationStatus.Done)
+                    {
+                        // Skip over invalid data
+
+                        Rune.DecodeFromUtf8(input, out _, out int bytesToSkip);
+                        input = input.Slice(bytesToSkip);
+
+                        builder.Append("{BAD}");
+                    }
+                }
+
+                if (new string(decoded) != builder.ToString())
+                {
+                    throw new Exception("Custom decoder replacement failed!!");
+                }
+            }
+
+            Console.WriteLine("-- END TEST - SUCCESS --");
         }
     }
 }
