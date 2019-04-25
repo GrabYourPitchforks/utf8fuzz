@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.IO;
 
 namespace utf8fuzz
@@ -21,7 +22,10 @@ namespace utf8fuzz
                 Console.WriteLine($"({allBytes.Length} bytes remain)");
             }
 
-            Driver driver = new Driver(allBytes);
+            using BoundedMemory<byte> boundedMemory = BoundedMemory.AllocateFromExistingData(allBytes);
+            boundedMemory.MakeReadonly();
+
+            Driver driver = new Driver(boundedMemory);
             driver.RunTest();
         }
     }

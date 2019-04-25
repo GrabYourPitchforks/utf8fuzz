@@ -8,9 +8,9 @@ namespace utf8fuzz
 {
     public class Driver
     {
-        private readonly byte[] _data;
+        private readonly BoundedMemory<byte> _data;
 
-        public Driver(byte[] data)
+        public Driver(BoundedMemory<byte> data)
         {
             _data = data;
         }
@@ -19,11 +19,11 @@ namespace utf8fuzz
         {
             Console.WriteLine("-- BEGIN TEST --");
 
-            int encodingCharCount = Encoding.UTF8.GetCharCount(_data);
+            int encodingCharCount = Encoding.UTF8.GetCharCount(_data.Span);
             Console.WriteLine($"Encoding.UTF8.GetCharCount returned {encodingCharCount}.");
 
             {
-                ReadOnlySpan<byte> input = _data;
+                ReadOnlySpan<byte> input = _data.Span;
                 int runeIterCharCount = 0;
                 while (!input.IsEmpty)
                 {
@@ -41,7 +41,7 @@ namespace utf8fuzz
             }
 
             char[] chars = new char[encodingCharCount];
-            int charsWritten = Encoding.UTF8.GetChars(_data, chars);
+            int charsWritten = Encoding.UTF8.GetChars(_data.Span, chars);
             Console.WriteLine($"Encoding.UTF8.GetChars returned {charsWritten} chars written.");
 
             if (encodingCharCount != charsWritten)
@@ -50,7 +50,7 @@ namespace utf8fuzz
             }
 
             {
-                ReadOnlySpan<byte> inputUtf8 = _data;
+                ReadOnlySpan<byte> inputUtf8 = _data.Span;
                 ReadOnlySpan<char> inputUtf16 = chars;
 
                 while (!inputUtf8.IsEmpty && !inputUtf16.IsEmpty)
@@ -77,14 +77,14 @@ namespace utf8fuzz
 
             {
                 char[] chars2 = new char[chars.Length];
-                OperationStatus opStatus = Utf8.ToUtf16(_data, chars2, out int bytesReadJustNow, out int charsWrittenJustNow, replaceInvalidSequences: true, isFinalBlock: true);
+                OperationStatus opStatus = Utf8.ToUtf16(_data.Span, chars2, out int bytesReadJustNow, out int charsWrittenJustNow, replaceInvalidSequences: true, isFinalBlock: true);
 
                 if (opStatus != OperationStatus.Done)
                 {
                     throw new Exception("Utf8.ToUtf16 returned wrong OperationStatus!!");
                 }
 
-                if (bytesReadJustNow != _data.Length)
+                if (bytesReadJustNow != _data.Memory.Length)
                 {
                     throw new Exception("Utf8.ToUtf16 didn't read entire input!!");
                 }
@@ -104,14 +104,14 @@ namespace utf8fuzz
 
             {
                 char[] chars2 = new char[chars.Length + 1024];
-                OperationStatus opStatus = Utf8.ToUtf16(_data, chars2, out int bytesReadJustNow, out int charsWrittenJustNow, replaceInvalidSequences: true, isFinalBlock: true);
+                OperationStatus opStatus = Utf8.ToUtf16(_data.Span, chars2, out int bytesReadJustNow, out int charsWrittenJustNow, replaceInvalidSequences: true, isFinalBlock: true);
 
                 if (opStatus != OperationStatus.Done)
                 {
                     throw new Exception("Utf8.ToUtf16 returned wrong OperationStatus!!");
                 }
 
-                if (bytesReadJustNow != _data.Length)
+                if (bytesReadJustNow != _data.Memory.Length)
                 {
                     throw new Exception("Utf8.ToUtf16 didn't read entire input!!");
                 }
@@ -130,7 +130,7 @@ namespace utf8fuzz
             Console.WriteLine("Running ToUtf16 with replace=false and extra large buffer.");
 
             {
-                ReadOnlySpan<byte> input = _data;
+                ReadOnlySpan<byte> input = _data.Span;
                 Span<char> output = new char[chars.Length + 1024];
 
                 while (!input.IsEmpty)
@@ -187,9 +187,9 @@ namespace utf8fuzz
                 // use a custom replacement string
                 Encoding encoding = Encoding.GetEncoding("utf-8", EncoderFallback.ExceptionFallback, new DecoderReplacementFallback("{BAD}"));
 
-                string decoded = encoding.GetString(_data);
+                string decoded = encoding.GetString(_data.Span);
 
-                ReadOnlySpan<byte> input = _data;
+                ReadOnlySpan<byte> input = _data.Span;
                 char[] decoded2 = new char[decoded.Length];
                 StringBuilder builder = new StringBuilder();
 
